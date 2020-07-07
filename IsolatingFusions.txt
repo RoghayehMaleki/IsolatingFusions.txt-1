@@ -1,0 +1,355 @@
+############################
+  # B_I-isolating fusion program
+  # By Roghayeh Maleki and Allen Herman - June 26, 2020
+############################
+# The first few commands are needed for producing the set 
+# of left regular matrices for various algebraic structures. 
+############################
+# This function produces standard matrices from the basic 
+# matrix of an association scheme. 
+
+AdjacencyMatrices := function(M)
+   local A, i, j, k, n, d;
+
+   n := Length(M);
+   d := Maximum(M[1]);
+   A := [];
+   for i in [1..d+1] do
+       A[i] := NullMat(n, n);
+   od;
+   for i in [1..n] do
+       for j in [1..n] do
+           A[M[i][j]+1][i][j] := 1;
+       od;
+   od;
+
+   return A;
+end;
+
+#############################
+# This function produces the left regular matrices 
+# for the standard basis of an association scheme 
+# that is given by its basic matrix. 
+
+RegularMatricesOfAssociationScheme:=function(C)
+local i,j,b1,n,b,d,k;
+
+d:=AdjacencyMatrices(C);
+n := Size(d);;
+b := Basis(Algebra(Rationals,d),d);
+b1 := [];
+ for i in [1..n] do 
+   b1[i]:=[];
+   for j in [1..n] do  
+       b1[i][j]:=Coefficients(b,b[i]*b[j]);
+   od;
+ od;
+
+b:=[]; 
+for i in [1..n] do b[i]:=TransposedMat(b1[i]); od; 
+
+return b;
+end;
+  
+################################################################
+# Given a finite basis of an algebra in GAP, this function 
+# produces the left regular matrices associated with that 
+# basis.  
+
+LeftRegularMatricesOfBasis:=function(B)
+local i,j,b1,n,b,d,b2,k;
+
+n := Size(B);;
+b := Basis(Algebra(Rationals,B),B);
+if not(b=fail) then
+b1:=[];
+for i in [1..n] do
+ b1[i]:=[ ];
+ for j in [1..n] do 
+     b1[i][j]:=Coefficients(b,b[i]*b[j]);
+ od;
+od;
+b:=[]; 
+for i in [1..n] do b[i]:=TransposedMat(b1[i]); od; 
+fi;
+
+return b;
+end;
+
+################################################################
+# The columns of a Fourier matrix are a basis for an algebra 
+# under pointwise multiplication.  This command produces the 
+# left regular matrices for the basis of columns. 
+
+RegularMatricesFromFourierMatrix:=function(S) 
+local B,r,F,i,a,D,b;
+
+B:=TransposedMat(S);
+r:=Length(B);
+F:=Rationals; 
+for i in [1..r] do 
+  a:=PrimitiveElement(F);
+  F:=Field(Union([a],B[i])); 
+od; 
+ 
+D:=[]; 
+for i in [1..r] do 
+  D[i]:=DiagonalMat(B[i]); 
+od; 
+
+b:=LeftRegularMatricesOfBasis(D);
+
+return b;
+end;
+##############################################################
+# A finite group G is the group basis of the rational group 
+# algebra QG.  This command produces the left regular matrices 
+# for this basis. 
+
+LeftRegularMatricesOfGroupBasis:=function(G)
+local R,z,n,g,i,b,j;
+
+R:=GroupRing(Rationals,G);
+z:=Identity(R);
+n:=Size(G);
+g:=[];
+for i in [1..n] do 
+  g[i]:=z*Elements(G)[i];
+od;
+g:=Basis(R,g);
+b:=LeftRegularMatricesOfBasis(g); 
+
+return b;
+end;
+#####################################################################
+# Given a basis b=[b[1],...b[n]] for an algebra over Q and partition 
+# p of [1..n], this command returns the left regular matrices for the 
+# fusion of b corresponding to the partition p, in the case that this 
+# fusing produces the basis of an algebra, otherwise it returns fail.  
+# It does not check the involution condition required for a semifusion 
+# to be a fusion. 
+ 
+SemifusionTA:=function(b,p)
+local r,k,D,i,j,a,d,l;
+
+r:=Length(b); 
+k:=Length(p); 
+D:=[]; 
+
+for i in [1..k] do 
+  D[i]:=0*IdentityMat(r); 
+  for j in [1..Length(p[i])] do 
+    D[i]:=D[i]+b[p[i][j]]; 
+  od; 
+od;
+
+d:=[]; 
+a:=Algebra(Rationals,D); 
+if not(Dimension(a)=Length(D)) then 
+#  Print(Dimension(a));
+  d:=fail; 
+else
+D:=Basis(a,D); 
+if D=fail then d:=fail; else
+for i in [1..k] do 
+ d[i]:=[];
+for j in [1..k] do 
+  d[i][j]:=Coefficients(D,D[i]*D[j]); 
+od; 
+od;
+for i in [1..k] do 
+  d[i]:=TransposedMat(d[i]);  
+od;
+fi; 
+fi;
+
+return d; 
+end; 
+
+###########################################
+# The next two commands are subroutines used by the main 
+# IsolatingFusion function. 
+
+JColumnSumsOfKRowsOfBI:=function(B,I,J,K)
+local i,j,k,s,b,s1;  
+
+b:=0*B[1]; 
+for i in I do b:=b+B[i]; od; 
+
+s:=[];
+for k in K do 
+s1:=0; 
+for j in J do s1:=s1+b[k][j]; od; 
+Add(s,s1);
+od; 
+
+return s; 
+end; 
+############################################################
+PartitionKForJColumnSumsOfBI:=function(B,I,J,K,P1)
+local S,P,K1,m,l,R,a,k,Q,p;
+
+S:=JColumnSumsOfKRowsOfBI(B,I,J,K);
+
+P:=[]; 
+K1:=K;
+m := Size(B);
+l:=Length(K1);
+while l >0 do
+   R := [];
+   a := S[Position(K,K1[1])]; 
+   for k in K1 do
+      if S[Position(K,k)] = a then Add(R,k); fi;
+   od;
+   Add(P,R);
+   K1:=Difference(K1,R);
+   l := Length(K1);
+od;
+
+Q:=P; 
+for p in P1 do 
+  if not(p=K) then 
+    Add(Q,p);
+  fi;
+od; 
+
+Sort(Q);
+
+return Q;
+end;  
+
+########################################################
+# Main IsolatingFusion function.  Given a basis B=[B[1]=Identity(A),..,B[n]]
+# for a Q-algebra A and a non-empty subset I of [2..n], this returns the 
+# minimal B_I-isolating semifusion of B when this exists.  If no such 
+# B_I-isolating semifusion exist, it will continue with the same method and  
+# allow decompositions of I until it finds a semifusion containing B_I as a 
+# sum of basis elements.    
+########################################################
+IsolatingFusion:=function(B,I)
+local C,P,l,p,q,r,L,m,i; 
+
+m:=Length(B[1][1]);
+L:=Difference([2..m],I);
+P:=[[1],L,I];
+P:=PartitionKForJColumnSumsOfBI(B,I,I,L,P);  
+
+for i in [1,2] do 
+
+for q in P do 
+for r in P do 
+  if not(r=I) then 
+  P:=PartitionKForJColumnSumsOfBI(B,I,q,r,P); 
+  fi;
+od; 
+od; 
+
+for p in P do 
+for r in P do 
+  if not(r=I) then 
+  P:=PartitionKForJColumnSumsOfBI(B,p,I,r,P); 
+  fi;
+od; 
+od;
+
+od; 
+
+if SemifusionTA(B,P)=fail then 
+l:=Length(P)-1;
+while l<Length(P) do
+l:=Length(P); 
+for p in P do 
+for q in P do
+for r in P do 
+if Length(r)>1 then 
+  P:=PartitionKForJColumnSumsOfBI(B,p,q,r,P);
+  if not(r in P) then break; fi;
+fi;
+od; 
+if Length(P)>l then break; fi; 
+od; 
+if Length(P)>l then break; fi; 
+od;
+od;  
+fi;
+
+return P;
+end;
+
+##############################
+# The next command is a sample of code for detecting fusions of 
+# ZG whose standard matrices have noncyclotomic eigenvalues.  
+# It has variations for searching *-symmetric or *-asymmetric basis 
+# elements b_I to be fused, their valencies, and the number of 
+# random I's of each type to be generated and tested.  It prints 
+# the I and the factor of the minimal polynomial of b_I that has 
+# noncyclotomic roots as it runs.  
+
+NoncyclotomicSchurRingTest:=function(G)
+local R,z,g,i,b,n,I,s,P,F,S,S1,f,j,d1,t,T,A,k;
+
+R:=GroupRing(Rationals,G);
+z:=Identity(R);
+g:=[]; 
+for i in [1..Size(G)] do 
+  g[i]:=z*Elements(G)[i]; 
+od; 
+g:=Basis(R,g);
+b:=LeftRegularMatricesOfBasis(g);
+S1:=[];
+S:=[];
+
+n:=0; 
+while n<10 do 
+n:=n+1;
+Print(n,"\r");
+I:=[];
+if n<5 then 
+for i in [1..2] do 
+ s:=Position(g,Random(g)); 
+ AddSet(I,s); AddSet(I,Position(g,g[s]^-1)); 
+od; 
+fi;
+if 4<n and n<9 then  
+  for i in [1..4] do 
+  s:=Position(g,Random(g)); 
+  if not(Position(g,g[s]^-1) in I) then AddSet(I,s); fi; 
+  od;
+fi;
+if 8<n then  
+  for i in [1..6] do 
+  s:=Position(g,Random(g)); 
+  if not(Position(g,g[s]^-1) in I) then AddSet(I,s); fi; 
+  od;
+fi;
+
+P:=IsolatingFusion(b,I);
+Print(n," ",Length(P),"  \r");
+if Length(P)<Size(G) then 
+F:=SemifusionTA(b,P);
+if not(F=fail) then 
+for i in [1..Length(F)] do 
+  f:=Factors(MinimalPolynomial(F[i]));
+  for j in [1..Length(f)] do 
+    d1:=Degree(f[j]); 
+    if d1>2 and d1<13 and not(f[j] in S) then 
+        t:=GaloisType(f[j]); 
+        T:=TransitiveGroup(d1,t); 
+        if not(IsAbelian(T)) then 
+  AddSet(S1,f[j]);
+  Print(Length(P)," ",P[i]," ",f[j]," ",StructureDescription(T)); 
+  if IsCommutative(Algebra(Rationals,F)) then Print(" commutative"); fi;
+  A:=0*b[1]; for k in P[i] do A:=A+b[k]; od; 
+  if A*TransposedMat(A)=TransposedMat(A)*A then 
+        Print(" diagonalizable \n"); else Print("\n"); fi;
+        fi; 
+    Add(S,f[j]); 
+    fi; 
+  od;
+od;   
+fi;
+fi;
+od;
+
+return S1;
+end;
