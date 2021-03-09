@@ -258,6 +258,7 @@ if SemifusionTA(B,P)=fail then
 l:=Length(P)-1;
 while l<Length(P) do
 l:=Length(P); 
+ 
 for p in P do 
 for q in P do
 for r in P do 
@@ -275,6 +276,45 @@ fi;
 
 return P;
 end;
+
+########################################################
+# Note: For this function, [1] should be included in Q
+########################################################
+MultipleSetIsolatingFusion:=function(B,Q)
+local Q1,I,C,P,l,p,q,r,L,m,i; 
+
+m:=Length(B[1][1]);
+Q1:=[]; 
+for I in Q do 
+  Q1:=UnionSet(Q1,I); 
+od; 
+L:=Difference([2..m],Q1);
+P:=UnionSet(Q,[L]);
+
+l:=Length(P)-1;
+while l<Length(P) do
+l:=Length(P); 
+ 
+for p in P do 
+for q in P do
+for r in P do 
+if Length(r)>1 then 
+  P:=PartitionKForJColumnSumsOfBI(B,p,q,r,P);
+  if not(r in P) then break; fi;
+fi;
+od; 
+if Length(P)>l then break; fi; 
+od; 
+if Length(P)>l then break; fi; 
+od;
+od;  
+
+return P;
+end;
+
+
+
+
 
 ##############################
 # The next command is a sample of code for detecting fusions of 
@@ -323,6 +363,7 @@ if 8<n then
   od;
 fi;
 
+if 1 in I then Remove(I,1); fi;
 P:=IsolatingFusion(b,I);
 Print(n," ",Length(P),"  \r");
 if Length(P)<Size(G) then 
@@ -330,9 +371,10 @@ F:=SemifusionTA(b,P);
 if not(F=fail) then 
 for i in [1..Length(F)] do 
   f:=Factors(MinimalPolynomial(F[i]));
+  Print(n," ",Length(F)," ",i," ",Length(f),"\r"); 
   for j in [1..Length(f)] do 
     d1:=Degree(f[j]); 
-    if d1>2 and d1<13 and not(f[j] in S) then 
+    if d1>2 and d1<10 and not(f[j] in S) then 
         t:=GaloisType(f[j]); 
         T:=TransitiveGroup(d1,t); 
         if not(IsAbelian(T)) then 
@@ -353,3 +395,79 @@ od;
 
 return S1;
 end;
+
+#####################################
+# Functions for identifying Cospectral association schemes
+# and combinatorially isomorphic schemes in the classification
+#####################################
+IsEqualSchemes:=function(B,C)
+local t,n,S,H,G,g,P,B1,h;
+
+t:=false;
+n:=Length(B[1]);
+S:=SymmetricGroup(n);
+if getFrequencies(B[1])=getFrequencies(C[1]) then 
+H:=AutomorphismGroupOfScheme(B);
+G:=AutomorphismGroupOfScheme(C);
+#H:=AutGp(B);
+#G:=AutGp(C);
+g:=RepresentativeAction(S,G,H);
+if not(g=fail) then
+P:=PermutationMat(g^(-1),n);
+B1:=P*B*P^(-1);
+if IsEqualSet(AdjacencyMatrices(B1),AdjacencyMatrices(C)) then 
+t:=true; 
+fi;
+
+if t=false and Size(G)<1000000 then 
+# Print("\n",Size(G)," \r");
+for h in Elements(RightCoset(Normalizer(S,G),g)) do  
+P:=PermutationMat(h,n);
+B1:=P*B*P^(-1);
+if IsEqualSet(AdjacencyMatrices(B1),AdjacencyMatrices(C)) then 
+t:=true; 
+fi;
+od;
+fi; 
+
+fi;
+fi;
+
+return t;
+end;
+##########################################
+IsCospectralSchemes:=function(B,C)
+local t,t1,b,c,r,S,T,s,i,p; 
+
+t:=false;
+t1:=1;
+b:=AdjacencyMatrices(B);
+c:=AdjacencyMatrices(C);
+if Length(b)=Length(c) then 
+r:=Length(b); 
+S:=[];
+for i in [2..r] do 
+ S[i]:=CharacteristicPolynomial(b[i]); 
+od; 
+T:=[];
+for i in [2..r] do 
+ T[i]:=CharacteristicPolynomial(c[i]); 
+od;
+
+for i in [2..r] do 
+ if T[i] in S then 
+  Remove(S,Position(S,T[i])); 
+ else
+  t1:=0; 
+  break; 
+ fi;
+od; 
+
+if t1=1 then 
+ t:=true;
+fi; 
+fi;
+
+return t; 
+end; 
+
