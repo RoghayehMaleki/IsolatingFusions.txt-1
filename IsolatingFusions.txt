@@ -1,35 +1,86 @@
 ############################
   # B_I-isolating fusion program
-  # By Roghayeh Maleki and Allen Herman - June 26, 2020
+  # By Roghayeh Maleki and Allen Herman - last updated: April 19, 2022
 ############################
 # The first few commands are needed for producing the set 
 # of left regular matrices for various algebraic structures. 
 ############################
-# This function produces standard matrices from the basic 
-# matrix of an association scheme. 
+# This function produces standard matrices from the basic matrix of 
+# an association scheme or coherent configuration. 
+############################
 
 AdjacencyMatrices := function(M)
    local A, i, j, k, n, d;
 
    n := Length(M);
    d := Maximum(M[1]);
+   for i in [1..n] do 
+     d:=Maximum(d,Maximum(M[i])); 
+   od;
    A := [];
    for i in [1..d+1] do
        A[i] := NullMat(n, n);
    od;
-   for i in [1..n] do
+   for k in [1..d+1] do 
+   for i in [1..n] do 
        for j in [1..n] do
-           A[M[i][j]+1][i][j] := 1;
+           if M[i][j]=k-1 then 
+           A[k][i][j]:=1; 
+           fi;
        od;
+   od;
    od;
 
    return A;
 end;
+##############################
+# If G is a nontrivial subgroup of Sym([1..n]), or is mapped isomorphically to one 
+# by "IsomorphismPermGroup", the next function produces the basic matrix 
+# of the two-orbit coherent configuration corresponding to the action of 
+# G on [1..n].
+#############################
+TwoOrbitConfiguration := function(G)
+    local f, g, n, L, d, M, x, y, i;
 
+    g:=G;
+# Use the next two lines if G is not a subgroup of S_n:
+#    f:=IsomorphismPermGroup(G); 
+#    g:=Image(f);
+    n:=LargestMovedPoint(g);
+    L:=Orbits(g,Tuples([1..n],2),OnTuples);
+    d:=Length(L); 
+    M := NullMat(n, n);
+    for x in [1..n] do
+        for y in [1..n] do
+            for i in [1..d] do
+                if [x,y] in L[i] then
+                    M[x][y] := i - 1;
+                fi;
+            od;
+        od;
+    od;
+
+    return M;
+end;
+#############################
+FullMatrixAlgebraConfiguration:=function(N)
+local M,i,j;
+
+M:=[]; 
+for i in [1..N] do 
+  M[i]:=[]; 
+for j in [1..N] do 
+  M[i][j]:=(i-1)*N+(j-1); 
+od; 
+od; 
+
+return M;
+end;
 #############################
 # This function produces the left regular matrices 
 # for the standard basis of an association scheme 
 # that is given by its basic matrix. 
+############################
 
 RegularMatricesOfAssociationScheme:=function(C)
 local i,j,b1,n,b,d,k;
@@ -55,6 +106,7 @@ end;
 # Given a finite basis of an algebra in GAP, this function 
 # produces the left regular matrices associated with that 
 # basis.  
+################################################################
 
 LeftRegularMatricesOfBasis:=function(B)
 local i,j,b1,n,b,d,b2,k;
@@ -80,6 +132,7 @@ end;
 # The columns of a Fourier matrix are a basis for an algebra 
 # under pointwise multiplication.  This command produces the 
 # left regular matrices for the basis of columns. 
+################################################################
 
 RegularMatricesFromFourierMatrix:=function(S) 
 local B,r,F,i,a,D,b;
@@ -105,6 +158,7 @@ end;
 # A finite group G is the group basis of the rational group 
 # algebra QG.  This command produces the left regular matrices 
 # for this basis. 
+##############################################################
 
 LeftRegularMatricesOfGroupBasis:=function(G)
 local R,z,n,g,i,b,j;
@@ -128,12 +182,16 @@ end;
 # fusing produces the basis of an algebra, otherwise it returns fail.  
 # It does not check the involution condition required for a semifusion 
 # to be a fusion. 
+#####################################################################
  
 SemifusionTA:=function(b,p)
 local r,k,D,i,j,a,d,l;
 
 r:=Length(b); 
 k:=Length(p); 
+d:=fail; 
+
+if k<5*r/6 then 
 D:=[]; 
 
 for i in [1..k] do 
@@ -143,7 +201,7 @@ for i in [1..k] do
   od; 
 od;
 
-d:=[]; 
+d:=[];
 a:=Algebra(Rationals,D); 
 if not(Dimension(a)=Length(D)) then 
 #  Print(Dimension(a));
@@ -162,6 +220,7 @@ for i in [1..k] do
 od;
 fi; 
 fi;
+fi;
 
 return d; 
 end; 
@@ -169,6 +228,7 @@ end;
 ###########################################
 # The next two commands are subroutines used by the main 
 # IsolatingFusion function. 
+############################################
 
 JColumnSumsOfKRowsOfBI:=function(B,I,J,K)
 local i,j,k,s,b,s1;  
@@ -230,11 +290,16 @@ IsolatingFusion:=function(B,I)
 local C,P,l,p,q,r,L,m,i; 
 
 m:=Length(B[1][1]);
-L:=Difference([2..m],I);
-P:=[[1],L,I];
+# for configurations switch to these lines:
+ L:=Difference([1..m],I); 
+ P:=[L,I];
+#L:=Difference([2..m],I); 
+#P:=[[1],L,I];
 P:=PartitionKForJColumnSumsOfBI(B,I,I,L,P);  
 
-for i in [1,2] do 
+l:=Length(P)-1;
+while l<Length(P) and I in P do
+l:=Length(P); 
 
 for q in P do 
 for r in P do 
@@ -251,10 +316,9 @@ for r in P do
   fi;
 od; 
 od;
-
+l:=Length(P); 
 od; 
 
-if SemifusionTA(B,P)=fail then 
 l:=Length(P)-1;
 while l<Length(P) do
 l:=Length(P); 
@@ -267,19 +331,21 @@ if Length(r)>1 then
   if not(r in P) then break; fi;
 fi;
 od; 
-if Length(P)>l then break; fi; 
 od; 
-if Length(P)>l then break; fi; 
 od;
-od;  
-fi;
+
+od; 
 
 return P;
 end;
 
 ########################################################
-# Note: For this function, [1] should be included in Q
+# The next function computes the Q-isolating fusion in the 
+# case where the input Q is a collection of two or more sets.
+# Note: For this function to work properly, B[1] should be 
+# the identity of the algebra QB and [1] should be included in Q.
 ########################################################
+
 MultipleSetIsolatingFusion:=function(B,Q)
 local Q1,I,C,P,l,p,q,r,L,m,i; 
 
@@ -288,7 +354,8 @@ Q1:=[];
 for I in Q do 
   Q1:=UnionSet(Q1,I); 
 od; 
-L:=Difference([2..m],Q1);
+# for configurations change this 2 to 1
+L:=Difference([1..m],Q1);
 P:=UnionSet(Q,[L]);
 
 l:=Length(P)-1;
@@ -303,18 +370,12 @@ if Length(r)>1 then
   if not(r in P) then break; fi;
 fi;
 od; 
-if Length(P)>l then break; fi; 
 od; 
-if Length(P)>l then break; fi; 
 od;
 od;  
 
 return P;
 end;
-
-
-
-
 
 ##############################
 # The next command is a sample of code for detecting fusions of 
@@ -326,7 +387,7 @@ end;
 # noncyclotomic roots as it runs.  
 
 NoncyclotomicSchurRingTest:=function(G)
-local R,z,g,i,b,n,I,s,P,F,S,S1,f,j,d1,t,T,A,k;
+local R,z,g,i,b,n,I,s,P,F,S,S1,f,j,d1,t,T,A,a1,k;
 
 R:=GroupRing(Rationals,G);
 z:=Identity(R);
@@ -342,7 +403,7 @@ S:=[];
 n:=0; 
 while n<10 do 
 n:=n+1;
-Print(n,"\r");
+Print(n,"               \r");
 I:=[];
 if n<5 then 
 for i in [1..2] do 
@@ -380,10 +441,12 @@ for i in [1..Length(F)] do
         if not(IsAbelian(T)) then 
   AddSet(S1,f[j]);
   Print(Length(P)," ",P[i]," ",f[j]," ",StructureDescription(T)); 
-  if IsCommutative(Algebra(Rationals,F)) then Print(" commutative"); fi;
+  a1:=Algebra(Rationals,F); 
+  if IsCommutative(a1) then Print(" commutative"); fi;
+  if F[i] in Center(a1) then Print(" central"); fi; 
   A:=0*b[1]; for k in P[i] do A:=A+b[k]; od; 
   if A*TransposedMat(A)=TransposedMat(A)*A then 
-        Print(" diagonalizable \n"); else Print("\n"); fi;
+        Print(" diagonalizable \n"); else Print("\n"); fi;  
         fi; 
     Add(S,f[j]); 
     fi; 
@@ -396,78 +459,222 @@ od;
 return S1;
 end;
 
-#####################################
-# Functions for identifying Cospectral association schemes
-# and combinatorially isomorphic schemes in the classification
-#####################################
-IsEqualSchemes:=function(B,C)
-local t,n,S,H,G,g,P,B1,h;
+############################################
+# The next four functions are required for "NoncyclotomicFusionsSchurianScheme", 
+# these come from Hanaki and Miyamoto's 
+# "Elementary Functions for Association Schemes in GAP" 
+# < http://math.shinshu-u.ac.jp/~hanaki/as/gap/association_scheme.gap >.
+############################################
+###########################
+IsAssociationScheme := function(M)
+    local i, j, k, A, V, d, n, l, Mat2Vec;
+    
+    Mat2Vec := function(M)
+        local i, V;
+        
+        V := M[1] * 1;
+        for i in [2..Length(M)] do
+            Append(V, M[i]);
+        od;
+        
+        return V;
+    end;
+    
+    n := Length(M);
+    A := AdjacencyMatrices(M);
+    d := Length(A);
+    V := [];
+    for i in [1..d] do
+        Add(V, Mat2Vec(A[i]));
+    od;
+    
+    if (IdentityMat(n) in A) = false then
+        return false;
+    fi;
+    
+    if ForAll([1..d], i -> (TransposedMat(A[i]) in A)) = false then
+        return false;
+    fi;
+    
+    for i in [1..d] do
+        for j in [1..d] do
+            V[d+1] := Mat2Vec(A[i]*A[j]);
+            if RankMat(V) <> d then
+                return false;
+            fi;
+        od;
+    od;
+    
+    return true;
+end;
+#######################################
+# The next function requires Leonard Soicher's "grape" package,  
+# it uses the GAP implementation of Brendan Mackay's "nauty" program.
+###########################
+LoadPackage("grape");
 
-t:=false;
-n:=Length(B[1]);
-S:=SymmetricGroup(n);
-if getFrequencies(B[1])=getFrequencies(C[1]) then 
-H:=AutomorphismGroupOfScheme(B);
-G:=AutomorphismGroupOfScheme(C);
-#H:=AutGp(B);
-#G:=AutGp(C);
-g:=RepresentativeAction(S,G,H);
-if not(g=fail) then
-P:=PermutationMat(g^(-1),n);
-B1:=P*B*P^(-1);
-if IsEqualSet(AdjacencyMatrices(B1),AdjacencyMatrices(C)) then 
-t:=true; 
-fi;
+AutomorphismGroupOfScheme:=function(R)
+    local G, adj, gp, gr, n, x, y, i;
+    
+#    if _IsGrapeLoaded = false then
+#        return fail;
+#    fi;
+    
+    adj := AdjacencyMatrices(R);
+    n := Length(R);
+    G := SymmetricGroup(n);
+    for i in [2..(Length(adj) - 1)] do
+        gr := Graph(Group(()), [1..n], OnPoints, function(x,y) return adj[i][x][y]=1; end);
+        gp := AutomorphismGroup(gr);
+        G := Intersection(G, gp);
+    od;
+  
+    return G;
+end;
+###########################
+FusionScheme := function(M, L)
+    local i, j, k, N, s, l, L2;
 
-if t=false and Size(G)<1000000 then 
-# Print("\n",Size(G)," \r");
-for h in Elements(RightCoset(Normalizer(S,G),g)) do  
-P:=PermutationMat(h,n);
-B1:=P*B*P^(-1);
-if IsEqualSet(AdjacencyMatrices(B1),AdjacencyMatrices(C)) then 
-t:=true; 
-fi;
-od;
-fi; 
+    if L[1] = [0] then
+        L2 := L{[2..Length(L)]};
+        L := L2;
+    fi;
+    s := Length(M);
+    l := Length(L);
+    N := NullMat(s, s);
+    for i in [1..s] do
+        for j in [1..s] do
+            if i <> j then
+                for k in [1..l] do
+                    if M[i][j] in L[k] then
+                        N[i][j] := k;
+                    fi;
+                od;
+            fi;
+        od;
+    od;
+      
+    return N;
+end;
+############################
+SchurianScheme:=function(G, H)
+    local M, D, x, y, n, C, i, d;
 
-fi;
-fi;
+    C := RightCosets(G, H);
+    C := List(C, x -> Representative(x));
+    n := Length(C);
+    D := DoubleCosets(G, H, H);
+    D := List(D, Elements);
+    d := Length(D);
+    M := NullMat(n, n);
+    for x in [1..n] do
+        for y in [1..n] do
+            for i in [1..d] do
+                if C[y]*C[x]^(-1) in D[i] then
+                    M[x][y] := i - 1;
+                fi;
+            od;
+        od;
+    od;
 
-return t;
+    return M;
 end;
 ##########################################
-IsCospectralSchemes:=function(B,C)
-local t,t1,b,c,r,S,T,s,i,p; 
+# The next function is used to search for noncyclotomic fusions 
+# of a given Schurian scheme. 
+##########################################
+NoncyclotomicFusionsSchurianScheme:=function(G,H)
+local S,A,A1,A2,A3,a,a1,r,R,z,g,i,b,n,I,s,P,P2,F,S1,S2,f,j,d1,t,T,k,G1,H1,a2,t1;
 
-t:=false;
-t1:=1;
-b:=AdjacencyMatrices(B);
-c:=AdjacencyMatrices(C);
-if Length(b)=Length(c) then 
-r:=Length(b); 
-S:=[];
-for i in [2..r] do 
- S[i]:=CharacteristicPolynomial(b[i]); 
+
+S:=SchurianScheme(G,H); 
+A:=AdjacencyMatrices(S);
+b:=LeftRegularMatricesOfBasis(A);
+r:=Length(b);
+
+S2:=[];
+S1:=[];
+
+n:=0; 
+while n<20 do 
+n:=n+1;
+Print(n,"\r");
+I:=[];
+
+#if n=1 then I:=[2..r]; fi; 
+
+if n>0 and n<6 then 
+for i in [1..2] do 
+ s:=Random([2..r]);  
+ AddSet(I,s); 
 od; 
-T:=[];
-for i in [2..r] do 
- T[i]:=CharacteristicPolynomial(c[i]); 
-od;
-
-for i in [2..r] do 
- if T[i] in S then 
-  Remove(S,Position(S,T[i])); 
- else
-  t1:=0; 
-  break; 
- fi;
-od; 
-
-if t1=1 then 
- t:=true;
-fi; 
 fi;
 
-return t; 
-end; 
+if 5<n and n<11 then  
+  for i in [1..3] do 
+  s:=Random([2..r]);  
+  AddSet(I,s); 
+  od;
+fi;
 
+if 10<n and n<16 then 
+for i in [1..4] do 
+ s:=Random([2..r]);  
+ AddSet(I,s); 
+od; 
+fi;
+
+if 15<n and n<21 then  
+  for i in [1..5] do 
+  s:=Random([2..r]);  
+  AddSet(I,s); 
+  od;
+fi;
+
+P:=IsolatingFusion(b,I);
+Print(n," ",Length(P),"        \r");
+t1:=0;
+for i in [1..Length(P)] do 
+if Length(P[i])=(Size(G)/Size(H)-Length(P)+1) then t1:=1; fi; 
+od; 
+if t1=0 and Length(P)<Length(b) then 
+F:=SemifusionTA(b,P);
+if not(F=fail) then 
+A1:=FusionScheme(S,P-1); 
+if IsAssociationScheme(A1) then
+#a:=Size(AutomorphismGroupOfScheme(A1)); 
+for i in [1..Length(F)] do 
+  f:=Factors(MinimalPolynomial(F[i]));
+  Print(n," ",Length(F)," ",i," ",Length(f),"\r"); 
+  for j in [1..Length(f)] do 
+    d1:=Degree(f[j]); 
+    if d1>2 and d1<10 and not(f[j] in S1) then 
+        t:=GaloisType(f[j]); 
+        T:=TransitiveGroup(d1,t); 
+        if not(IsAbelian(T)) then 
+  AddSet(S2,f[j]);
+  Print(Size(G)/Size(H)," ",Length(P)," ",P[i]," ",f[j]," ",StructureDescription(T));
+  P2:=IsolatingFusion(b,P[i]); 
+  A3:=FusionScheme(S,P2-1);
+  G1:=AutomorphismGroupOfScheme(A3);
+  H1:=Stabilizer(G1,1); 
+  a2:=Size(DoubleCosets(G1,H1,H1)); 
+  if Length(P2)<a2 then Print("nonSchurian"); fi; 
+  a1:=Algebra(Rationals,F);  
+  if IsCommutative(a1) then Print(" commutative"); fi;
+  if F[i] in Center(a1) then Print(" central"); fi;
+    A2:=0*A[1]; for k in P[i] do A2:=A2+A[k]; od; 
+  if A2*TransposedMat(A2)=TransposedMat(A2)*A2 then 
+        Print(" diagonalizable \n"); else Print("\n"); fi;
+        fi; 
+    Add(S1,f[j]); 
+    fi;
+  od;
+od;   
+fi;
+fi;
+else Print(n," fail \r"); fi;
+od;
+
+return S2;
+end;
